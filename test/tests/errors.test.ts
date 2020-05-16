@@ -23,7 +23,7 @@ import {
 
 import { DecoratorKeys } from '../../src/internal/constants';
 import { _buildSchema } from '../../src/internal/schema';
-import { assignMetadata, createArrayFromDimensions, mapOptions, mergeSchemaOptions } from '../../src/internal/utils';
+import { assignMetadata, insertAtDeepestArray, mapOptions, mergeSchemaOptions } from '../../src/internal/utils';
 import { logger } from '../../src/logSettings';
 
 // disable "no-unused" for this file, because it tests for errors
@@ -490,7 +490,7 @@ it('should error if a non-valid object is passed to "getClass" [ReferenceError]'
 
 it('should error if 0 or less dimensions are given (createArrayFromDimensions) [RangeError]', () => {
   try {
-    createArrayFromDimensions({ dim: 0 }, { someThing: true }, '', '');
+    insertAtDeepestArray({ dim: 0 }, { someThing: true });
 
     fail('Expected to throw "RangeError"');
   } catch (err) {
@@ -498,7 +498,7 @@ it('should error if 0 or less dimensions are given (createArrayFromDimensions) [
   }
 
   try {
-    createArrayFromDimensions({ dim: -100 }, { someThing: true }, '', '');
+    insertAtDeepestArray({ dim: -100 }, { someThing: true });
 
     fail('Expected to throw "RangeError"');
   } catch (err) {
