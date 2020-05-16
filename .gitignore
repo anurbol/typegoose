@@ -127,7 +127,6 @@ typings/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
 
 ### VisualStudioCode ###
 .vscode/*
@@ -159,7 +158,6 @@ $RECYCLE.BIN/
 
 ## Customs for this project
 build
-.env
 lib
 
 # ts's build info
@@ -170,3 +168,4 @@ test/config.json
 
 # typedoc docs folder
 doc/
+config.bat
