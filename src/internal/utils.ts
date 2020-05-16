@@ -12,7 +12,8 @@ import type {
   IPrototype,
   PropOptionsWithNumberValidate,
   PropOptionsWithStringValidate,
-  VirtualOptions
+  VirtualOptions,
+  DeferredFunc
 } from '../types';
 import { DecoratorKeys, Severity, WhatIsIt } from './constants';
 import { constructors, globalOptions, schemas } from './data';
@@ -341,10 +342,10 @@ export function isNotDefined(cl: any) {
  */
 export function mapArrayOptions(
   rawOptions: any,
-  Type: AnyParamConstructor<any> | mongoose.Schema,
+  Type: any | any[],
   target: any,
   pkey: string,
-  loggerType?: AnyParamConstructor<any>
+  loggerType?: any | any[]
 ): mongoose.SchemaTypeOpts<any> {
   logger.debug('mapArrayOptions called');
 
@@ -381,7 +382,8 @@ export function mapArrayOptions(
     }
   }
 
-  returnObject.type = createArrayFromDimensions(rawOptions, returnObject.type, getName(target), pkey);
+  insertAtDeepestArray(Type, returnObject.type);
+  returnObject.type = Type as any;
 
   if (loggerType) {
     logger.debug('(Array) Final mapped Options for Type "%s"', getName(loggerType), returnObject);
@@ -540,28 +542,44 @@ export function get_idStatus(Type: any, rawOptions: any): boolean {
 }
 
 /**
- * Loop over "dimensions" and create an array from that
- * @param rawOptions baseProp's rawOptions
+ * Loop until finding the deepest array and insert "extra"
+ * @param Type The Array to loop over
  * @param extra What is actually in the deepest array
  * @param name name of the target for better error logging
  * @param key key of target-key for better error logging
  */
-export function createArrayFromDimensions(rawOptions: any, extra: any, name: string, key: string) {
+export function insertAtDeepestArray(Type: any, extra: any): void {
   // dimensions start at 1 (not 0)
-  const dim = typeof rawOptions.dim === 'number' ? rawOptions.dim : 1;
-  if (dim < 1) {
-    throw new RangeError(format('"dim" needs to be higher than 0 (%s.%s)', name, key));
-  }
-  delete rawOptions.dim; // delete this property to not actually put it as an option
-  logger.info('createArrayFromDimensions called with %d dimensions', dim);
+  // const dim = typeof rawOptions.dim === 'number' ? rawOptions.dim : 1;
+  // if (dim < 1) {
+  //   throw new RangeError(format('"dim" needs to be higher than 0 (%s.%s)', name, key));
+  // }
+  // delete rawOptions.dim; // delete this property to not actually put it as an option
+  // logger.info('createArrayFromDimensions called with %d dimensions', dim);
 
-  let retArray: any[] = Array.isArray(extra) ? extra : [extra];
-  // index starts at 1 because "retArray" is already once wrapped in an array
-  for (let index = 1; index < dim; index++) {
-    retArray = [retArray];
+  // let retArray: any[] = Array.isArray(extra) ? extra : [extra];
+  // // index starts at 1 because "retArray" is already once wrapped in an array
+  // for (let index = 1; index < dim; index++) {
+  //   retArray = [retArray];
+  // }
+  let deepest: any[] = Type[0];
+  while (Array.isArray(deepest?.[0])) {
+    deepest = deepest[0];
+  }
+  console.log("hello", deepest);
+  deepest[1] = Object.assign({}, deepest?.[1], extra);
+}
+
+export function getTypeOfArray(Type: any | any[]): any {
+  if (!Array.isArray(Type)) {
+    return Type;
+  }
+  let deepest: any[] = Type[0];
+  while (Array.isArray(deepest?.[0])) {
+    deepest = deepest[0];
   }
 
-  return retArray as any[];
+  return deepest[0];
 }
 
 /**

@@ -138,7 +138,7 @@ export interface BasePropOptions {
    * This may be needed if get/set is used
    * (this sets the type how it is saved to the DB)
    */
-  type?: any | DeferredFunc;
+  type?: DeferredFunc | DeferredFunc<any[]>;
   /**
    * Make a property read-only
    * @example
@@ -178,17 +178,6 @@ export interface BasePropOptions {
    * @default ObjectId
    */
   refType?: RefSchemaType;
-}
-
-// tslint:disable-next-line:no-empty-interface
-export interface PropOptions extends BasePropOptions { }
-
-export interface ArrayPropOptions extends BasePropOptions {
-  /** What array is it?
-   * {@link BasePropOptions.type} can be used too
-   * Note: this is only needed because Reflect & refelact Metadata can't give an accurate Response for an array
-   */
-  items?: any | DeferredFunc;
   /**
    * Use this to define inner-options
    * Use this if the auto-mapping is not correct or for plugin options
@@ -208,19 +197,58 @@ export interface ArrayPropOptions extends BasePropOptions {
     [key: string]: any;
   };
   /**
-   * How many dimensions this Array should have
-   * (needs to be higher than 0)
-   * @default 1
+   * @deprecated
    */
-  dim?: number;
+  of: any | DeferredFunc;
+  /**
+   * @deprecated
+   */
+  items: any | DeferredFunc;
 }
 
-export interface MapPropOptions extends BasePropOptions {
-  /**
-   * The type of the Map (Map<string, THIS>)
-   */
-  of?: any | DeferredFunc;
-}
+// tslint:disable-next-line:no-empty-interface
+export interface PropOptions extends BasePropOptions { }
+export interface ArrayPropOptions extends BasePropOptions { }
+export interface MapPropOptions extends BasePropOptions { }
+
+// export interface ArrayPropOptions extends BasePropOptions {
+//   /** What array is it?
+//    * {@link BasePropOptions.type} can be used too
+//    * Note: this is only needed because Reflect & refelact Metadata can't give an accurate Response for an array
+//    */
+//   items?: any | DeferredFunc;
+//   /**
+//    * Use this to define inner-options
+//    * Use this if the auto-mapping is not correct or for plugin options
+//    *
+//    * Please open a new issue if some option is mismatched or not existing / mapped
+//    */
+//   innerOptions?: {
+//     [key: string]: any;
+//   };
+//   /**
+//    * Use this to define outer-options
+//    * Use this if the auto-mapping is not correct or for plugin options
+//    *
+//    * Please open a new issue if some option is mismatched or not existing / mapped
+//    */
+//   outerOptions?: {
+//     [key: string]: any;
+//   };
+//   /**
+//    * How many dimensions this Array should have
+//    * (needs to be higher than 0)
+//    * @default 1
+//    */
+//   dim?: number;
+// }
+
+// export interface MapPropOptions extends BasePropOptions {
+//   /**
+//    * The type of the Map (Map<string, THIS>)
+//    */
+//   of?: any | DeferredFunc;
+// }
 
 export interface ValidateNumberOptions {
   /** The Number must be at least this high */
@@ -262,8 +290,8 @@ export interface VirtualOptions {
   count?: boolean;
 }
 
-export type PropOptionsWithNumberValidate = PropOptions & ValidateNumberOptions;
-export type PropOptionsWithStringValidate = PropOptions & TransformStringOptions & ValidateStringOptions;
+export type PropOptionsWithNumberValidate = BasePropOptions & ValidateNumberOptions;
+export type PropOptionsWithStringValidate = BasePropOptions & TransformStringOptions & ValidateStringOptions;
 export type PropOptionsWithValidate = PropOptionsWithNumberValidate | PropOptionsWithStringValidate | VirtualOptions;
 
 export type RefType = number | string | mongoose.Types.ObjectId | Buffer | undefined;

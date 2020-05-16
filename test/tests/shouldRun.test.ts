@@ -3,7 +3,7 @@ import * as mongoose from 'mongoose';
 
 import { DecoratorKeys } from '../../src/internal/constants';
 import { globalOptions } from '../../src/internal/data';
-import { assertion, assignMetadata, createArrayFromDimensions, getName, mergeMetadata, mergeSchemaOptions } from '../../src/internal/utils';
+import { assertion, assignMetadata, insertAtDeepestArray, getName, mergeMetadata, mergeSchemaOptions } from '../../src/internal/utils';
 import { logger } from '../../src/logSettings';
 import {
   addModelToTypegoose,
@@ -388,17 +388,17 @@ it('should give a warning [typegoose/typegoose#152]', () => {
 
 it('should create 1D Array (createArrayFromDimensions)', () => {
   const should = [{ someThing: true }];
-  expect(createArrayFromDimensions({}, { someThing: true }, '', '')).toEqual(should);
+  expect(insertAtDeepestArray({}, { someThing: true }, '', '')).toEqual(should);
 });
 
 it('should create 5D Array (createArrayFromDimensions)', () => {
   const should = [[[[[{ someThing: true }]]]]];
-  expect(createArrayFromDimensions({ dim: 5 }, { someThing: true }, '', '')).toEqual(should);
+  expect(insertAtDeepestArray({ dim: 5 }, { someThing: true }, '', '')).toEqual(should);
 });
 
 it('should not add another array if "extra" is already an array (createArrayFromDimensions)', () => {
   const should = [{ someThing: true }];
-  expect(createArrayFromDimensions({}, [{ someThing: true }], '', '')).toEqual(should);
+  expect(insertAtDeepestArray({}, [{ someThing: true }], '', '')).toEqual(should);
 });
 
 it('should add "null" to the enum (addNullToEnum)', async () => {

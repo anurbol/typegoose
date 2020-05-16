@@ -6,7 +6,7 @@ beforeEach(() => {
   expect.assertions(1);
 });
 
-describe('prop.ts', () => {
+describe.skip('prop.ts', () => {
   describe('@mapProp', () => {
     it('should warn if option "items" is used in an @mapProp', () => {
       class TestMapPropOptionItems {

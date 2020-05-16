@@ -1,5 +1,5 @@
 import * as mongoose from 'mongoose';
-import { format } from 'util';
+import { deprecate, format } from 'util';
 
 import { DecoratorKeys, WhatIsIt } from './internal/constants';
 import { schemas } from './internal/data';
@@ -16,6 +16,7 @@ import { logger } from './logSettings';
 import { buildSchema } from './typegoose';
 import type {
   ArrayPropOptions,
+  BasePropOptions,
   DecoratedPropertyMetadata,
   DecoratedPropertyMetadataMap,
   MapPropOptions,
@@ -53,16 +54,9 @@ function baseProp(input: DecoratedPropertyMetadata): void {
  * @param input All the options needed for prop's
  */
 export function _buildPropMetadata(input: DecoratedPropertyMetadata) {
-  let { Type } = input;
-  const { key, origOptions, target, whatis } = input;
+  const { key, origOptions, target, whatis, Type } = input;
   const rawOptions = Object.assign({}, origOptions);
   logger.debug('Starting to process "%s.%s"', utils.getName(target), key);
-
-  if (!utils.isNullOrUndefined(rawOptions.type)) {
-    logger.info('Prop Option "type" is set to', rawOptions.type);
-    Type = utils.getType(rawOptions.type);
-    delete rawOptions.type;
-  }
 
   if (utils.isNotDefined(Type)) {
     buildSchema(Type);
@@ -114,23 +108,22 @@ export function _buildPropMetadata(input: DecoratedPropertyMetadata) {
 
   const ref = rawOptions?.ref;
   // use "rawOptions.refType" if set, otherwise "Type" if it is an suitable ref-type, otherwise default back to "ObjectId"
-  const refType = rawOptions?.refType ?? (utils.isAnRefType(Type) ? Type : undefined) ?? mongoose.Schema.Types.ObjectId;
+  const refType = Type ?? mongoose.Schema.Types.ObjectId;
   if (!utils.isNullOrUndefined(ref)) {
     delete rawOptions.ref;
 
     switch (whatis) {
       case WhatIsIt.ARRAY:
-        schemaProp[key] = utils.createArrayFromDimensions(
-          rawOptions,
+        utils.insertAtDeepestArray(
+          refType,
           {
             ...schemaProp[key][0],
             type: refType,
             ref,
             ...rawOptions
-          },
-          name,
-          key
+          }
         );
+        schemaProp[key] = Type;
         break;
       case WhatIsIt.NONE:
         schemaProp[key] = {
@@ -158,17 +151,16 @@ export function _buildPropMetadata(input: DecoratedPropertyMetadata) {
 
     switch (whatis) {
       case WhatIsIt.ARRAY:
-        schemaProp[key] = utils.createArrayFromDimensions(
-          rawOptions,
+        utils.insertAtDeepestArray(
+          refType,
           {
             ...schemaProp[key][0],
             type: refType,
             refPath,
             ...rawOptions
-          },
-          name,
-          key
+          }
         );
+        schemaProp[key] = Type;
         break;
       case WhatIsIt.NONE:
         schemaProp[key] = {
@@ -189,7 +181,7 @@ export function _buildPropMetadata(input: DecoratedPropertyMetadata) {
   if (!utils.isNullOrUndefined(enumOption)) {
     // check if the supplied value is already "mongoose-consumeable"
     if (!Array.isArray(enumOption)) {
-      if (Type === String) {
+      if (utils.getTypeOfArray(Type) === String) {
         rawOptions.enum = Object.entries<string>(enumOption) // get all key-value pairs of the enum
           // no reverse-filtering because if it is full of strings, there is no reverse mapping
           .map(([enumKey, enumValue]) => {
@@ -202,7 +194,7 @@ export function _buildPropMetadata(input: DecoratedPropertyMetadata) {
 
             return enumValue;
           });
-      } else if (Type === Number) {
+      } else if (utils.getTypeOfArray(Type) === Number) {
         rawOptions.enum = Object.entries<string | number>(enumOption) // get all key-value pairs of the enum
           // filter out the "reverse (value -> name) mappings"
           // https://www.typescriptlang.org/docs/handbook/enums.html#reverse-mappings
@@ -367,14 +359,14 @@ export function _buildPropMetadata(input: DecoratedPropertyMetadata) {
  * @param options Options
  * @public
  */
-export function prop(options: PropOptionsWithValidate = {}) {
+export function prop(options?: BasePropOptions | any) {
   return (target: any, key: string) => {
     let Type = Reflect.getMetadata(DecoratorKeys.Type, target, key);
     utils.assertion(!utils.isNullOrUndefined(Type), new NoMetadataError(key));
 
     let whatis = WhatIsIt.NONE;
 
-    if (Type === Array) {
+    if (Type === Array || Type === mongoose.Schema.Types.Array || Type === mongoose.Types.Array) {
       whatis = WhatIsIt.ARRAY;
     } else if (Type === Map) {
       whatis = WhatIsIt.MAP;
@@ -383,34 +375,42 @@ export function prop(options: PropOptionsWithValidate = {}) {
     // soft errors
     switch (whatis) {
       case WhatIsIt.NONE:
-        if ('items' in options) {
-          logger.warn('You might not want to use option "items" in an normal @prop (%s.%s)', utils.getName(target), key);
-        }
-
-        if ('of' in options) {
-          logger.warn('You might not want to use option "of" in an normal @prop (%s.%s)', utils.getName(target), key);
-        }
         break;
       case WhatIsIt.ARRAY:
         if ('items' in options) {
-          Type = utils.getType(options.items);
+          options.type = options.items;
           delete options.items;
+          deprecate(() => void 0, 'Option "items" is deprecated, use "type"');
         }
 
-        if ('of' in options) {
-          logger.warn('You might not want to use option "of" where the "design:type" is "Array" (%s.%s)', utils.getName(target), key);
-        }
         break;
       case WhatIsIt.MAP:
         if ('of' in options) {
-          Type = utils.getType(options.of);
+          options.type = options.of;
           delete options.of;
+          deprecate(() => void 0, 'Option "of" is deprecated, use "type"');
         }
 
-        if ('items' in options) {
-          logger.warn('You might not want to use option "items" where the "design:type" is "Map" (%s.%s)', utils.getName(target), key);
-        }
         break;
+    }
+
+    if (!utils.isNullOrUndefined(options?.type)) {
+      if (typeof options.type !== 'function' || utils.isConstructor(options.type)) {
+        logger.warn('Setting option "type" without using an arrow-function is deprecated!');
+      }
+      logger.info('Prop Option "type" is set to', options.type);
+      Type = utils.getType(options.type);
+      delete options.type;
+
+      if (whatis === WhatIsIt.ARRAY && !Array.isArray(Type)) {
+        Type = [Type];
+      }
+    }
+
+    if (!utils.isNullOrUndefined(options?.refType)) {
+      options.type = options.refType;
+      delete options.refType;
+      deprecate(() => void 0, 'Option "refType" is deprecated, use "type"');
     }
 
     baseProp({
@@ -428,52 +428,54 @@ export function prop(options: PropOptionsWithValidate = {}) {
  * @param options Options for the Map
  * @public
  */
-export function mapProp(options: MapPropOptions) {
-  return (target: any, key: string) => {
-    const Type = utils.getType(options?.of);
-    delete options.of;
+// export function mapProp(options: MapPropOptions) {
+//   return (target: any, key: string) => {
+//     const Type = utils.getType(options?.of);
+//     delete options.of;
 
-    if ('items' in options) {
-      logger.warn('You might not want to use option "items" in a @mapProp, use @arrayProp (%s.%s)', utils.getName(target), key);
-    }
+//     if ('items' in options) {
+//       logger.warn('You might not want to use option "items" in a @mapProp, use @arrayProp (%s.%s)', utils.getName(target), key);
+//     }
 
-    baseProp({
-      Type,
-      key,
-      origOptions: options,
-      target,
-      whatis: WhatIsIt.MAP
-    });
-  };
-}
+//     baseProp({
+//       Type,
+//       key,
+//       origOptions: options,
+//       target,
+//       whatis: WhatIsIt.MAP
+//     });
+//   };
+// }
 
 /**
  * Set Property(that are Arrays) Options for the property below
  * @param options Options
  * @public
  */
-export function arrayProp(options: ArrayPropOptions) {
-  return (target: any, key: string) => {
-    const Type = utils.getType(options?.items);
+// export function arrayProp(options: ArrayPropOptions) {
+//   return (target: any, key: string) => {
+//     const Type = utils.getType(options?.items);
 
-    if ('of' in options) {
-      logger.warn('You might not want to use option "of" in a @arrayProp, use @mapProp (%s.%s)', utils.getName(target), key);
-    }
+//     if ('of' in options) {
+//       logger.warn('You might not want to use option "of" in a @arrayProp, use @mapProp (%s.%s)', utils.getName(target), key);
+//     }
 
-    // Delete the "items" option from options because it got set as "Type"
-    if ('items' in options) {
-      delete options.items;
-    }
+//     // Delete the "items" option from options because it got set as "Type"
+//     if ('items' in options) {
+//       delete options.items;
+//     }
 
-    baseProp({
-      Type,
-      key,
-      origOptions: options,
-      target,
-      whatis: WhatIsIt.ARRAY
-    });
-  };
-}
+//     baseProp({
+//       Type,
+//       key,
+//       origOptions: options,
+//       target,
+//       whatis: WhatIsIt.ARRAY
+//     });
+//   };
+// }
+export const arrayProp = prop;
+export const mapProp = prop;
 
 // Export it PascalCased
 export const Prop = prop;
